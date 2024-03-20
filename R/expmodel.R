@@ -146,7 +146,7 @@ tryBlockSeriesFit <- function() {
 }
 
 
-bootstrapAll <- function(bootstraps=5000) {
+bootstrapAll <- function(bootstraps=5000, bootstrapfile=NULL, tasks=c('localization','training')) {
   
   ncores   <- parallel::detectCores()
   # clust    <- parallel::makeCluster(max(c(1,floor(ncores*0.75))))
@@ -159,17 +159,27 @@ bootstrapAll <- function(bootstraps=5000) {
   
   locdf$depvar <- locdf$taperror_deg
   locdf <- locdf[,c('participant', 'block', 'rotation', 'pair', 'depvar')]
-  participants <- unique(locdf$participant)
   
-  BSparticipants <- sample(x = participants,
-                           size = length(participants) * bootstraps,
-                           replace = TRUE)
+  if (is.null(bootstrapfile)) {
+    
+    participants <- unique(locdf$participant)
+    
+    BSparticipants <- sample(x = participants,
+                             size = length(participants) * bootstraps,
+                             replace = TRUE)
+    
+    BSparticipants <- matrix( data = BSparticipants,
+                              nrow = bootstraps,
+                              ncol = length(participants))
+    
+    write.csv(BSparticipants, 'data/bootstrap_participants.csv', quote=TRUE, row.names=FALSE)
+    
+  } else {
+    
+    BSparticipants <- as.matrix(read.csv('data/bootstrap_participants.csv', stringsAsFactors = FALSE))
+    
+  }
   
-  BSparticipants <- matrix( data = BSparticipants,
-                            nrow = bootstraps,
-                            ncol = length(participants))
-  
-  write.csv(BSparticipants, 'data/bootstrap_participants.csv', quote=TRUE, row.names=FALSE)
   
   # a <- parallel::parApply(cl = clust,
   #                         X = BSparticipants,
@@ -178,57 +188,63 @@ bootstrapAll <- function(bootstraps=5000) {
   #                         data = locdf,
   #                         prepend = c(0))
   
-  cat('\nLOCALIZATION BOOTSTRAPS\n\n')
-  
-  a <- parabar::par_apply(backend = backend,
-                          x = BSparticipants,
-                          margin = 1,
-                          fun = fitBlockSeries,
-                          data = locdf,
-                          prepend = c(0) )
-  
-  all_bootstraps <- NA
-  for (bs in c(1:length(a))) {
-    bsdf <- a[[bs]]
-    bsdf$bootstrap <- bs
-    if (is.data.frame(all_bootstraps)) {
-      all_bootstraps <- rbind(all_bootstraps, bsdf)
-    } else {
-      all_bootstraps <- bsdf
+  if ('localization' %in% tasks) {
+    cat('\nLOCALIZATION BOOTSTRAPS\n\n')
+    
+    a <- parabar::par_apply(backend = backend,
+                            x = BSparticipants,
+                            margin = 1,
+                            fun = fitBlockSeries,
+                            data = locdf,
+                            prepend = c(0) )
+    
+    all_bootstraps <- NA
+    for (bs in c(1:length(a))) {
+      bsdf <- a[[bs]]
+      bsdf$bootstrap <- bs
+      if (is.data.frame(all_bootstraps)) {
+        all_bootstraps <- rbind(all_bootstraps, bsdf)
+      } else {
+        all_bootstraps <- bsdf
+      }
     }
+    
+    write.csv(all_bootstraps, 'data/localization_bootstraps.csv', quote=F, row.names=F)
+    
   }
-  
-  write.csv(all_bootstraps, 'data/localization_bootstraps.csv', quote=F, row.names=F)
   
   # TRAINING
   
-  traindf <- read.csv('data/training.csv', stringsAsFactors = FALSE)
-  
-  traindf$depvar <- traindf$reachdeviation_deg
-  traindf <- traindf[,c('participant', 'block', 'rotation', 'pair', 'depvar')]
-  
-  cat('\nREACH TRAINING BOOTSTRAPS\n\n')
-  
-  a <- parabar::par_apply(backend = backend,
-                          x = BSparticipants,
-                          margin = 1,
-                          fun = fitBlockSeries,
-                          data = traindf,
-                          prepend = c())
-  
-  all_bootstraps <- NA
-  for (bs in c(1:length(a))) {
-    bsdf <- a[[bs]]
-    bsdf$bootstrap <- bs
-    if (is.data.frame(all_bootstraps)) {
-      all_bootstraps <- rbind(all_bootstraps, bsdf)
-    } else {
-      all_bootstraps <- bsdf
+  if ('training' %in% tasks) {
+    
+    traindf <- read.csv('data/training.csv', stringsAsFactors = FALSE)
+    
+    traindf$depvar <- traindf$reachdeviation_deg
+    traindf <- traindf[,c('participant', 'block', 'rotation', 'pair', 'depvar')]
+    
+    cat('\nREACH TRAINING BOOTSTRAPS\n\n')
+    
+    a <- parabar::par_apply(backend = backend,
+                            x = BSparticipants,
+                            margin = 1,
+                            fun = fitBlockSeries,
+                            data = traindf,
+                            prepend = c())
+    
+    all_bootstraps <- NA
+    for (bs in c(1:length(a))) {
+      bsdf <- a[[bs]]
+      bsdf$bootstrap <- bs
+      if (is.data.frame(all_bootstraps)) {
+        all_bootstraps <- rbind(all_bootstraps, bsdf)
+      } else {
+        all_bootstraps <- bsdf
+      }
     }
+    
+    write.csv(all_bootstraps, 'data/training_bootstraps.csv', quote=F, row.names=F)
+    
   }
-  
-  write.csv(all_bootstraps, 'data/training_bootstraps.csv', quote=F, row.names=F)
-  
   
   # parallel::stopCluster(clust)
   
