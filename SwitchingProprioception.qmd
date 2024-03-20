@@ -1,0 +1,91 @@
+---
+title: "Adaptation and Proprioceptive Recalibration in Randomly Switched Rotations"
+author: "Bernard Marius 't Hart"
+format: 
+  pdf:
+    pdf-engine: pdflatex
+editor: visual
+---
+
+# Adaptation and Proprioceptive Recalibration in Randomly Switched Rotations
+
+## Overview
+
+Learning-of-learning is when people who trained with many variants of some task learn a new variant faster then those who trained just as long, but with only one variant.
+
+The measure of learning-of-learning in visuo-motor adaptation is usually the comparison of the first and final learning rate, but what happens during learning-of-learning has not been inspected. Simultaneously, while we know proprioception recalibrates during motor adaptation, we don't know what happens with proprioceptive recalibration during a learning-of-learning paradigm. It could be that there is an analogue to learning-of-learning (recalibration-of-recalibration?) such that it occurs faster or is larger. It could also be that people get desensitized to the task such that proprioceptive recalibration decreases (in speed, extent or both). Or alternatively, it remains unchanged.
+
+Here we explore both questions in one paradigm. Participants (N=32) adapt to a succession of rotations, where each is present for 12 trials. We picked 5 rotations, and zero error clamped feedback, and each of the 6 conditions follows each of the 6 conditions (sometimes a condition is repeated). After each training reach, participants also do a passive localization trial, where the robot moves their unseen arm out to a position on an arc, and they use the other arm to indicate on a touchscreen where they feel the unseen arm is. This way, we simultaneously collect data on reach adaptation and on proprioceptive recalibration in a learning-of-learning paradigm.
+
+We fit a learning function to each block of 12 (or 24) trials for both the training reach directions and the localization angles. Whenever a new block starts, the baseline is taken to be the value predicted by the fitted function from the previous block on the trial immediately following that block. This function uses a learning rate and an asymptote, which we can now track across blocks, to see how learning-of-learning develops and what happens with proprioceptive recalibration. We bootstrap these parameters and use those to do descriptive statistics.
+
+# Setting up
+
+This chunk installs the Reach package.
+
+```{r}
+library('remotes')
+ip <- installed.packages()
+if ('Reach' %in% ip[,'Package']) {
+  if (ip[which(ip[,'Package'] == 'Reach'),'Version'] < "2023.12.17") {
+    remotes::install_github('thartbm/Reach')
+  }
+} else {
+  remotes::install_github('thartbm/Reach')
+}
+```
+
+This chunk sources all functions from this project.
+
+```{r}
+# download and pre-process the data:
+source('R/data.R')
+# functions to make figures:
+source('R/figures.R')
+```
+
+This chunk downloads the data. You can re-run the pre-processing by uncommenting the last two lines. And perhaps improve the pre-processing (by editing the code in `R/data.R`) to suit your needs.
+
+```{r}
+# getData()
+# combineLocalizationData()
+# combineTrainingData()
+```
+
+The data set is hosted on OSF: [https://osf.io/5ec7s/](https://osf.io/5ec7s/).
+
+The data set contains a folder for each participant (given a random alpha-numeric ID) which contains two files. One is called `training.csv` and this contains all recorded samples from the out-and-back training reaches participants completed (many samples per trial). The other is called `localization.csv` and this contains all the passive localization responses (1 sample per trial). All spatial units have been converted to centimeters, where the home position is the origin (0,0). The precision of spatial measures has been reduced to 2 digits. Time has been converted to milliseconds after reach trial onset with no trailing digits. Redundant variables have been removed as well. Hopefully, this makes for a compact and easily understood data set.
+
+In contrast to some other projects, the pre-processing usually doesn't take all that long. What does take long is the function fitting, a bit later on. The output of this exercise are also included in the pre-processed data file.
+
+# Participants
+
+For now, we first have a look at the participants.
+
+```{r}
+participantDescriptors()
+```
+
+We recruited 32 participants from a participant pool, 23 reported being female, 9 male and none other. The mean age of participants was 20.4 (+/- 3.6) years. All participants were right-handed and had normal or corrected-to-normal vision and provided prior, written infromed consent. Procedures were in accordance with national and international guidelines and were approved by the institutional ethics committee (YHRC).
+
+# Paradigm
+
+We used rotations: -30, -15, 0, 15 and 30 degrees to keep adaptation mostly implicit. While rotations of 30 or less do not evoke considerable amounts of explicit adaptation (Modchalingam et al., 2019; 't Hart et al., 2023; D'Amario et al., in preparation) it could be that making a 60 or 45 degree switch elicits some amount of explicit adaptation (Modchalingam et al., 2019; D'Amario et al., in preparation). However, the interplay of explicit and implicit adaptation is not a consideration here, and proprioceptive recalibration is not affected by levels of explicit adaptation (Modchalingam et al., 2019; Gastrock et al., 202X).
+
+We also used zero-clamped blocks but will not specifically analyze the data from these blocks. They allow testing decay throughout the learning-of-learning paradigm, and the full data set is available for the interested reader.
+
+```{r fig.width=8, fig.height=4}
+plotParadigm()
+```
+
+The baseline block is 49 trials, all other blocks are 12 or 24 trials, except the last, which is 11 trials. All participants used the same schedule, such that we could bootstrap the exponential function parameters across participants. Apart from the baseline block, there are 30 blocks in the experiment, 25 of which have regular feedback and will be used in the analyses.
+
+# Reaching and localization
+
+Let's have a look at the data itself, before analyzing it.
+
+```{r fig.width=8, fig.height=4}
+plotData()
+```
+
+Reach deviations have been flipped in sign, as they should counter the rotation, but this makes for easier visual comparison with both the rotation as well as with the amount of change in localization responses. We can see that reach deviations consistently change, and change more than localization responses, throughout the paradigm. However, we do also see changes in localization responses throughout the paradigm.
