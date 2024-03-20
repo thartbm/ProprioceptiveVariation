@@ -5,7 +5,7 @@
 getData <- function() {
   
   Reach::downloadOSFdata(  repository = '5ec7s',
-                           filelist   = list('data'=c('raw.zip','demographics.csv', 'processed.zip')),
+                           filelist   = list('data'=c('raw.zip','demographics.csv', 'processed.zip', 'bootstrap.zip')),
                            folder     = 'data',
                            unzip      = TRUE  )
   
