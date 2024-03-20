@@ -145,59 +145,71 @@ tryBlockSeriesFit <- function() {
   
 }
 
+sampleBootstrapParticipants <- function(bootstraps=5000, filename=NULL) {
+  
+  dg <- read.csv('data/demographics.csv', stringsAsFactors = FALSE)
+  
+  participants <- unique(dg$participant)
+  
+  BSparticipants <- sample(x = participants,
+                           size = length(participants) * bootstraps,
+                           replace = TRUE)
+  
+  BSparticipants <- matrix( data = BSparticipants,
+                            nrow = bootstraps,
+                            ncol = length(participants))
+  
+  if (is.null(filename)) {
+    return(BSparticipants)
+  } else {
+    write.csv(BSparticipants, filename, quote=TRUE, row.names=FALSE) # col.names=FALSE skips a row, if not read correctly
+  }
+  
+}
 
-bootstrapAll <- function(bootstraps=5000, bootstrapfile=NULL, tasks=c('localization','training')) {
+
+bootstrapAll <- function(bootstraps=5000, bootstrapfile=NULL, bootstrapmatrix=NULL, tasks=c('localization','training')) {
   
   ncores   <- parallel::detectCores()
-  # clust    <- parallel::makeCluster(max(c(1,floor(ncores*0.75))))
   
   backend <- parabar::start_backend(cores = max(c(1,floor(ncores*0.75))), 
                                     cluster_type = "psock", 
                                     backend_type = "async")
   
-  locdf <- read.csv('data/localization.csv', stringsAsFactors = FALSE)
-  
-  locdf$depvar <- locdf$taperror_deg
-  locdf <- locdf[,c('participant', 'block', 'rotation', 'pair', 'depvar')]
-  
-  if (is.null(bootstrapfile)) {
-    
-    participants <- unique(locdf$participant)
-    
-    BSparticipants <- sample(x = participants,
-                             size = length(participants) * bootstraps,
-                             replace = TRUE)
-    
-    BSparticipants <- matrix( data = BSparticipants,
-                              nrow = bootstraps,
-                              ncol = length(participants))
-    
-    write.csv(BSparticipants, 'data/bootstrap_participants.csv', quote=TRUE, row.names=FALSE)
-    
+  # get sample matrix from indicated source:
+  if (!is.null(bootstrapmatrix)) {
+    BSparticipants <- bootstrapmatrix
+  } else if (!is.null(bootstrapfile)) {
+    BSparticipants <- as.matrix(read.csv(bootstrapfile, stringsAsFactors = FALSE))
   } else {
-    
-    BSparticipants <- as.matrix(read.csv('data/bootstrap_participants.csv', stringsAsFactors = FALSE))
-    
+    BSparticipants <- sampleBootstrapParticipants(bootstraps=bootstraps)
   }
   
   
-  # a <- parallel::parApply(cl = clust,
-  #                         X = BSparticipants,
-  #                         MARGIN = 1,
-  #                         FUN = fitBlockSeries,
-  #                         data = locdf,
-  #                         prepend = c(0))
-  
-  if ('localization' %in% tasks) {
-    cat('\nLOCALIZATION BOOTSTRAPS\n\n')
+  for (task in tasks) {
     
+    cat(sprintf('\n%s BOOTSTRAPS\n\n',toupper(task)))
+    
+    
+    # get data for task:
+    df <- read.csv(sprintf('data/%s.csv',task), stringsAsFactors = FALSE)
+    df$depvar <- list('localization'=df$taperror_deg,
+                      'training'=df$reachdeviation_deg * -1)[[task]]
+    df <- df[,c('participant', 'block', 'rotation', 'pair', 'depvar')]
+    
+    # do we need to prepend anything?
+    prepend <- list('localization'=c(0),
+                    'training'=c())[[task]]
+    
+    # run all bootstrapped samples in a cluster with progress bar:
     a <- parabar::par_apply(backend = backend,
                             x = BSparticipants,
                             margin = 1,
                             fun = fitBlockSeries,
-                            data = locdf,
-                            prepend = c(0) )
+                            data = df,
+                            prepend = prepend )
     
+    # concatenate into one big data frame, and store:
     all_bootstraps <- NA
     for (bs in c(1:length(a))) {
       bsdf <- a[[bs]]
@@ -209,91 +221,12 @@ bootstrapAll <- function(bootstraps=5000, bootstrapfile=NULL, tasks=c('localizat
       }
     }
     
-    write.csv(all_bootstraps, 'data/localization_bootstraps.csv', quote=F, row.names=F)
+    write.csv(all_bootstraps, sprintf('data/%s_bootstraps.csv',task), quote=F, row.names=F)
     
   }
   
-  # TRAINING
-  
-  if ('training' %in% tasks) {
-    
-    traindf <- read.csv('data/training.csv', stringsAsFactors = FALSE)
-    
-    traindf$depvar <- traindf$reachdeviation_deg
-    traindf <- traindf[,c('participant', 'block', 'rotation', 'pair', 'depvar')]
-    
-    cat('\nREACH TRAINING BOOTSTRAPS\n\n')
-    
-    a <- parabar::par_apply(backend = backend,
-                            x = BSparticipants,
-                            margin = 1,
-                            fun = fitBlockSeries,
-                            data = traindf,
-                            prepend = c())
-    
-    all_bootstraps <- NA
-    for (bs in c(1:length(a))) {
-      bsdf <- a[[bs]]
-      bsdf$bootstrap <- bs
-      if (is.data.frame(all_bootstraps)) {
-        all_bootstraps <- rbind(all_bootstraps, bsdf)
-      } else {
-        all_bootstraps <- bsdf
-      }
-    }
-    
-    write.csv(all_bootstraps, 'data/training_bootstraps.csv', quote=F, row.names=F)
-    
-  }
-  
-  # parallel::stopCluster(clust)
-  
+  # release cluster nodes cleanly:
   parabar::stop_backend(backend)
   
 }
 
-
-# bootstrapTraining <- function(bootstraps=5000) {
-#   
-#   ncores   <- parallel::detectCores()
-#   clust    <- parallel::makeCluster(max(c(1,floor(ncores*0.75))))
-#   
-# 
-#   traindf <- read.csv('data/training.csv', stringsAsFactors = FALSE)
-#   
-#   traindf$depvar <- traindf$reachdeviation_deg
-#   traindf <- traindf[,c('participant', 'block', 'rotation', 'pair', 'depvar')]
-#   participants <- unique(traindf$participant)
-#   
-#   BSparticipants <- sample(x = participants,
-#                            size = length(participants) * bootstraps,
-#                            replace = TRUE)
-#   
-#   BSparticipants <- matrix( data = BSparticipants,
-#                             nrow = bootstraps,
-#                             ncol = length(participants))
-#   
-#   a <- parallel::parApply(cl = clust,
-#                           X = BSparticipants,
-#                           MARGIN = 1,
-#                           FUN = fitBlockSeries,
-#                           data = locdf,
-#                           prepend = c(0))
-#   
-#   parallel::stopCluster(clust)
-#   
-#   all_bootstraps <- NA
-#   for (bs in c(1:length(a))) {
-#     bsdf <- a[[bs]]
-#     bsdf$bootstrap <- bs
-#     if (is.data.frame(all_bootstraps)) {
-#       all_bootstraps <- rbind(all_bootstraps, bsdf)
-#     } else {
-#       all_bootstraps <- bsdf
-#     }
-#   }
-#   
-#   write.csv(all_bootstraps, 'data/localization_bootstraps.csv', quote=F, row.names=F)
-#   return(all_bootstraps)
-#   
-# }
