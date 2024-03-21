@@ -7,7 +7,7 @@ getData <- function() {
   if (!dir.exists("data")) { dir.create("data") }
   
   Reach::downloadOSFdata(  repository = '5ec7s',
-                           filelist   = list('data'=c('data.zip', 'bootstrap.zip')),
+                           filelist   = list('data'=c('data.zip', 'exponential_fits.zip')),
                            folder     = 'data',
                            unzip      = TRUE  )
   
@@ -186,7 +186,6 @@ participantDescriptors <- function() {
     print(table(demographics[,desc]))
   }
   
-  
 }
 
 getTransitionTypes <- function() {
@@ -207,4 +206,6 @@ getBlockTransitionTypes <- function() {
   transition <- c('learning', 'decay', 'decay', 'learning', 'both', 'decay', 'learning', 'both', NA, 'learning', 'decay', 'learning', NA, 'learning', 'both', 'both', 'decay', 'both', NA, 'learning', 'learning', 'both', 'decay', NA, 'learning', 'learning', 'both', 'both', NA, 'decay')
   
   return( data.frame( block, transition ) )
+  
 }
+
