@@ -65,7 +65,7 @@ fitBlockSeries <- function(participants, data, prepend=c()) {
     bstartpoints <- c(bstartpoints, startpoint)
     bmfs <- c(bmfs, mf)
     basymptotes <- c(basymptotes, asymptote)
-    btrials <- c(btrials, length(signal))
+    btrials <- c(btrials, length(signal)-length(prepend))
     
     
     
@@ -230,3 +230,35 @@ bootstrapAll <- function(bootstraps=5000, bootstrapfile=NULL, bootstrapmatrix=NU
   
 }
 
+
+centralBlockSeriesFit <- function() {
+  
+  locdf <- read.csv('data/localization.csv', stringsAsFactors = FALSE)
+  
+  locdf$depvar <- locdf$taperror_deg
+  locdf <- locdf[,c('participant', 'block', 'rotation', 'pair', 'depvar')]
+  participants <- unique(locdf$participant)
+  
+  locfit <- fitBlockSeries(  participants = participants,
+                             data         = locdf,
+                             prepend      = c(0)                 )
+  
+  traindf <- read.csv('data/training.csv', stringsAsFactors = FALSE)
+  
+  traindf$depvar <- traindf$reachdeviation_deg
+  traindf <- traindf[,c('participant', 'block', 'rotation', 'pair', 'depvar')]
+  participants <- unique(traindf$participant)
+  
+  trainfit <- fitBlockSeries(  participants = participants,
+                               data         = traindf,
+                               prepend      = c()                 )
+  
+  
+  locfit$type <- 'localization'
+  trainfit$type <- 'training'
+  
+  centralfits <- rbind(locfit, trainfit)
+  
+  write.csv(centralfits, 'data/centralfits.csv', quote=F, row.names=F)
+  
+}
