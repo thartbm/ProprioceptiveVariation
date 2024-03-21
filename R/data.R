@@ -4,6 +4,8 @@
 
 getData <- function() {
   
+  if (!dir.exists("data")) { dir.create("data") }
+  
   Reach::downloadOSFdata(  repository = '5ec7s',
                            filelist   = list('data'=c('data.zip', 'bootstrap.zip')),
                            folder     = 'data',
@@ -185,4 +187,24 @@ participantDescriptors <- function() {
   }
   
   
+}
+
+getTransitionTypes <- function() {
+  
+  first <- c(0,	0,	15,	0,	0,	-15,	15,	30,	30,	-15,	-30,	-30,	15,	15,	30,	30,	-15,	-15,	-30,	-30)
+  second <- c(15,	30,	30,	-15,	-30,	-30,	0,	0,	15,	0,	0,	-15,	-15,	-30,	-15,	-30,	15,	30,	15,	30)
+  learning <- c(1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1,	1,	1,	1,	1)
+  decay <- c(0,	0,	0,	0,	0,	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1)
+  type <- c('learning', 'learning', 'learning', 'learning', 'learning', 'learning', 'decay', 'decay', 'decay', 'decay', 'decay', 'decay', 'both', 'both', 'both', 'both', 'both', 'both', 'both', 'both')
+  
+  return( data.frame( first, second, learning, decay, type ) )  
+  
+}
+
+getBlockTransitionTypes <- function() {
+  
+  block <- c(1:30)
+  transition <- c('learning', 'decay', 'decay', 'learning', 'both', 'decay', 'learning', 'both', NA, 'learning', 'decay', 'learning', NA, 'learning', 'both', 'both', 'decay', 'both', NA, 'learning', 'learning', 'both', 'decay', NA, 'learning', 'learning', 'both', 'both', NA, 'decay')
+  
+  return( data.frame( block, transition ) )
 }
