@@ -13,6 +13,25 @@ getData <- function() {
   
 }
 
+
+participantDescriptors <- function() {
+  
+  demographics <- read.csv('data/demographics.csv', stringsAsFactors = FALSE)
+  
+  cat('\n--- age\n\n')
+  cat(sprintf('mean: %0.2f\n',mean(demographics$age)))
+  cat(sprintf('sd: %0.3f\n',sd(demographics$age)))
+  age_range <- range(demographics$age)
+  cat(sprintf('range: %d-%d\n',age_range[1],age_range[2]))
+  
+  for (desc in c('sex','handedness','vision')) {
+    cat(sprintf('\n--- %s\n',desc))
+    print(table(demographics[,desc]))
+  }
+  
+}
+
+
 # combine data -----
 
 combineLocalizationData <- function() {
@@ -67,34 +86,7 @@ combineLocalizationData <- function() {
   
 }
 
-getSchedule <- function() {
-  
-  rotations	<- c(0,	-30,	-15,	0,	-15,	15,	0,	15,	-30,	0,	-30,	0,	30,	0,	30,	-15,	30,	15,	-15,	0,	-15,	-30,	30,	0,	0,	15,	30,	-30,	15,	0,	0)
-  clamps	  <- c(0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	1,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	1,	0,	0,	0,	0,	1,	0)
-  pairs	    <- c(49,	12,	12,	12,	12,	12,	24,	24,	24,	12,	12,	12,	12,	24,	12,	24,	24,	12,	12,	12,	12,	12,	12,	12,	12,	12,	12,	12,	12,	12,	11)
-  
-  # now expand to full, trial-by-trial schedule
-  trial    <- 1:(sum(pairs)*2)
-  pair     <- rep(1:(sum(pairs)), each=2)
-  block    <- rep(c(1:length(pairs))-1, times=pairs*2)
-  type     <- rep(c('reach','localization'),sum(pairs))
-  rotation <- rep(rotations, pairs*2)
-  clamp    <- rep(clamps, pairs*2)
-  
-  # remove from localization data schedule?
-  # technically yes, but it's better if we have the preceding reach info available
-  
-  # rotation[which(type == 'localization')] <- NA
-  # clamp[which(type == 'localization')] <- NA
-  
-  return( data.frame( trial,
-                      pair,
-                      block,
-                      type,
-                      rotation,
-                      clamp      ) )
 
-}
 
 combineTrainingData <- function() {
   
@@ -171,20 +163,37 @@ combineTrainingData <- function() {
   
 }
 
-participantDescriptors <- function() {
+
+
+
+# convenience functions -----
+
+getSchedule <- function() {
   
-  demographics <- read.csv('data/demographics.csv', stringsAsFactors = FALSE)
+  rotations	<- c(0,	-30,	-15,	0,	-15,	15,	0,	15,	-30,	0,	-30,	0,	30,	0,	30,	-15,	30,	15,	-15,	0,	-15,	-30,	30,	0,	0,	15,	30,	-30,	15,	0,	0)
+  clamps	  <- c(0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	0,	0,	0,	1,	0,	0,	0,	0,	0,	1,	0,	0,	0,	0,	1,	0,	0,	0,	0,	1,	0)
+  pairs	    <- c(49,	12,	12,	12,	12,	12,	24,	24,	24,	12,	12,	12,	12,	24,	12,	24,	24,	12,	12,	12,	12,	12,	12,	12,	12,	12,	12,	12,	12,	12,	11)
   
-  cat('\n--- age\n\n')
-  cat(sprintf('mean: %0.2f\n',mean(demographics$age)))
-  cat(sprintf('sd: %0.3f\n',sd(demographics$age)))
-  age_range <- range(demographics$age)
-  cat(sprintf('range: %d-%d\n',age_range[1],age_range[2]))
+  # now expand to full, trial-by-trial schedule
+  trial    <- 1:(sum(pairs)*2)
+  pair     <- rep(1:(sum(pairs)), each=2)
+  block    <- rep(c(1:length(pairs))-1, times=pairs*2)
+  type     <- rep(c('reach','localization'),sum(pairs))
+  rotation <- rep(rotations, pairs*2)
+  clamp    <- rep(clamps, pairs*2)
   
-  for (desc in c('sex','handedness','vision')) {
-    cat(sprintf('\n--- %s\n',desc))
-    print(table(demographics[,desc]))
-  }
+  # remove from localization data schedule?
+  # technically yes, but it's better if we have the preceding reach info available
+  
+  # rotation[which(type == 'localization')] <- NA
+  # clamp[which(type == 'localization')] <- NA
+  
+  return( data.frame( trial,
+                      pair,
+                      block,
+                      type,
+                      rotation,
+                      clamp      ) )
   
 }
 
