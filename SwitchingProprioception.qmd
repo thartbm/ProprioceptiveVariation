@@ -42,19 +42,23 @@ This chunk sources all functions from this project.
 source('R/data.R')
 # functions to make figures:
 source('R/figures.R')
+# exponential fits:
+source('R/expmodel.R')
 ```
 
 This chunk downloads the data. You can re-run the pre-processing by uncommenting the last two lines. And perhaps improve the pre-processing (by editing the code in `R/data.R`) to suit your needs.
 
 ```{r}
 # getData()
-# combineLocalizationData()
-# combineTrainingData()
+# combineLocalizationData() # creates file 'data/localization.csv'
+# combineTrainingData() # creates file 'data/training.csv'
 ```
 
 The data set is hosted on OSF: <https://osf.io/5ec7s/>.
 
 The data set contains a folder for each participant (given a random alpha-numeric ID) which contains two files. One is called `training.csv` and this contains all recorded samples from the out-and-back training reaches participants completed (many samples per trial). The other is called `localization.csv` and this contains all the passive localization responses (1 sample per trial). All spatial units have been converted to centimeters, where the home position is the origin (0,0). The precision of spatial measures has been reduced to 2 digits. Time has been converted to milliseconds after reach trial onset with no trailing digits. Redundant variables have been removed as well. Hopefully, this makes for a compact and easily understood data set.
+
+There are also 3 bigger files that are the output of a longer bootstrap exercise. First the matrix of participant IDs used for bootstrapping `bootstrap_participants.csv`. This file has 5000 rows, and 32 columns, each cell has a participant ID drawn at random. For bootstrapping, we loop over the rows of the matrix. Then there are `localization_bootstraps.csv` and `training_bootstraps.csv`, which contain the output of the bootstrapped exponential fitting procedure. By using the same participant matrix, we allow checking if the random choice of participants has related effects on the localization and training data. (Not done here.)
 
 In contrast to some other projects, the pre-processing usually doesn't take all that long. What does take long is the function fitting, a bit later on. The output of this exercise are also included in the pre-processed data file.
 
@@ -89,3 +93,85 @@ plotData()
 ```
 
 Reach deviations have been flipped in sign, as they should counter the rotation, but this makes for easier visual comparison with both the rotation as well as with the amount of change in localization responses. We can see that reach deviations consistently change, and change more than localization responses, throughout the paradigm. However, we do also see changes in localization responses throughout the paradigm.
+
+# Bootstrapping
+
+We bootstrap exponential fits to the learning curves in each block. These blocks happen in succession, such that they are not in a baseline state when a new rotation is introduced. To account for this, the way the function is fit to each block depends on the fit for the previous block.
+
+First, the function used is:
+
+$p_t = p_{t-1} + l * (a - p_{t-1})$
+
+Where $a$ is the asymptote and $p_{t}$ is the value of some process at trial $t$, such that $a - p_{t_1}$ is the error (relative to asymptote) on the the previous trial. On each trial the state of the process $p$ is updated, such that is the value of the process on the previous trial plus the error, multiplied by a learning rate $l$.
+
+> ***Note about implementation:***
+>
+> In the code fitting this function, we could iteratively loop through trials, while keeping track of the state. But since there is only one process, we can also use a list of time points $\mathbf{t}$, and the equation can be rewritten as:
+>
+> $\mathbf{p} = a - (a \cdot l^\mathbf{t})$
+>
+> Where $\mathbf{p}$ is a list of the values of the process p at each of the time points in $\mathbf{t}$:
+>
+> $\mathbf{p} = [p_{0}, p_{1}, ... p_{n-2}, p_{n-1}]$
+>
+> With $n$ trials or timepoints in $\mathbf{t}$. Which programmatically avoids loops and allows generating the whole sequence at once for faster function fitting. It also allows plotting smoother curves, since intermediate values on t are possible. The values of t do need to start at 0 for the first trial in this implementation.
+
+The learning rate $l$ and asymptote $a$ are free parameters, where the learning rate is taken from the range \[0,1\] and the asymptote from the the range \[-1\*max(data),2\*max(data\]. The limits on the learning rate are more restrictive, and this is our primary parameter of interest. The parameters are fit using an initial grid search. Parameter values from the grid search are evaluated by taking N parameter value combinations that result in the N lowest mean squared errors (MSE) between data and function fit. These N parameter combinations are used as the starting points for an optimization procedure that minimizes the MSE further. The parameter combination with the lowest MSE is used as the best fit.
+
+The function assumes a starting point of 0. In the first block, the starting point is indeed 0 since we subtracted baseline biases for every participant from all their responses. In subsequent blocks we take the value predicted by the fitted function from the previous block as the starting point.
+
+The function also assumes that values increase over time, so for each block we make sure that the asymptote has a higher numeric value than the starting point - if necessary - by multiplying by -1.
+
+Further, we scale the behavioral responses such that reaching full compensation would result in an asymptote of 1. This allows comparing asymptotes throughout the schedule. Learning rates are in the range \[0,1\] by default such that they can already be compared throughout the schedule.
+
+The localization trials always follow a reach training trial. The rotations occur during the reach training trials, and not the localization. Reach deviations on reach training trials (very early in the reach) reflect movement planning based on the state of adaptation after the previous reach training trial. This means that on the first reach with rotated feedback after the baseline period the initial reach direction should not yet be affected by the rotated feedback. That is: the curve starts at 0. For localization this is different: the proprioceptive state has been altered by the preceding reach with rotated feedback, the curve *does not* start at 0. To ammend this, we prepend a 0 to the localization responses on each block before fitting. Since we correct for the level of the process on the first trial given the fit to the preceding block, this would represent the state of proprioceptive recalibration at the start of the preceding reach training trial - as accurately as possible.
+
+A single fit results in 30 sets of exponential function parameters. In the bootstrapping procedure we repeat this 5000 times for both localization responses and training reach deviations. This can take quite some time (\~10 hours on my fastest computer), even though this has been parallelized to use 15 cores.
+
+```{r}
+#bootstrapAll(bootstrapfile = 'data/bootstrap_participants.csv', tasks=c('localization','training'))
+```
+
+Which is why this line is commented out, and the output of the procedure can simply be downloaded from OSF.io.
+
+However, using this output we can now calculate a 95% confidence interval of the mean for the learning rate (and the asymptote) in each successive block for both localization shifts and motor adaptation.
+
+# Central fits
+
+Here I show the fits using all participants exactly once. This should be roughly the mean of the bootstrapped values.
+
+```{r fig.width=8, fig.height=8}
+plotCentralFits()
+```
+
+Shaded areas are 95% confidence intervals of the mean for the data. Faint lines are average responses in the data. Clear lines are the exponential fits. Hopefully this makes clear that the fitting procedure does manage to get fairly close to the data - with all it's limitations.
+
+Let's now have a look at the bootstrapped 95% confidence interval of the mean for learning rates and asymptotes for both the localization and training data.
+
+```{r fig.width=10, fig.height=6}
+plotBootstrappedParameters(task='localization')
+```
+
+And for reach training:
+
+```{r fig.width=10, fig.height=6}
+plotBootstrappedParameters(task='training')
+```
+
+The results are not very clear. This may have to do with the next issue.
+
+# Rotation transition types
+
+The fitted asymptotes however, vary quite a bit by block. This is because in some blocks, there is actually decay, rather than learning. For example, in a block with a 15 degree rotation, that is precede by a 30 degree rotation, participants are usually hyper-adapted at the start of the 15 degree block, let's say at 20 degrees. This means that if they de-adapt by 5 degrees (from 20 to 15 degrees), they would then be at the asymptote. However, they would usually de-adapt more, to end up at perhaps 10 degrees. This would be noted as an asymptote of 2, or 200% adaptation. Sometimes there are even larger values, which I'm sure make sense within the bootstrapped sample, but an asymptote of 38 or 201 means 3800% or 20100% adaptation, which sounds rather ridiculous.
+
+I'm not sure what the implications are for the learning rates, as these depend on that asymptotic level of adaptation.
+
+However, it is clear that blocks where only decay happens (changing the rotation to one closer to 0) and those where only learning happens (changing the rotation to one further away from 0) should be different. It might also be that when both happen (changing the rotation from positive to negative or vice versa) the behavior may be different still.
+
+That is: adaptation conditions might be very different from block to block and this may bias the results. We should account for this somehow. Possibilities are to group blocks by the type of transition (learning, decay, both... and NA for clamp blocks) or by the step-size from one block to the next: 15, 30, 45 or 60 degrees. Just eye-balling the schedule, the larger steps *seem* to happening more often later in the schedule, and the larger steps (45 and 60 degrees) would necessarily have a mixture of decay and learning. From previous research it seems that learning rates are usually higher than un-learning rates. So that when larger steps occur more in the later parts of the schedule, this means that un-learning/decay steps happen more in the early parts of the schedule (by accident), that would bias results to show larger learning at the end.
+
+## What to do?
+
+Similarly, the qualitatively large differences between transitions from on block to the next may pollute the results on learning rates substantially, making it very unclear to see at a glance whether or not learning rates (or asymptotes) change throughout the schedule.
+
+How should we handle this?
