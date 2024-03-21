@@ -52,7 +52,7 @@ This chunk downloads the data. You can re-run the pre-processing by uncommenting
 # combineTrainingData()
 ```
 
-The data set is hosted on OSF: [https://osf.io/5ec7s/](https://osf.io/5ec7s/).
+The data set is hosted on OSF: <https://osf.io/5ec7s/>.
 
 The data set contains a folder for each participant (given a random alpha-numeric ID) which contains two files. One is called `training.csv` and this contains all recorded samples from the out-and-back training reaches participants completed (many samples per trial). The other is called `localization.csv` and this contains all the passive localization responses (1 sample per trial). All spatial units have been converted to centimeters, where the home position is the origin (0,0). The precision of spatial measures has been reduced to 2 digits. Time has been converted to milliseconds after reach trial onset with no trailing digits. Redundant variables have been removed as well. Hopefully, this makes for a compact and easily understood data set.
 
